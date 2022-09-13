@@ -5,16 +5,16 @@ class AuthOperationTest < Minitest::Spec
   include ActionMailer::TestHelper
 
   describe 'Auth::Operation::Create' do
-    # @H
+
     it "validates input, encrypts the password, saves user,
           creates a verify-account token and send a welcome email" do
       result = nil
       assert_emails 1 do
         result = Auth::Operation::CreateAccount.wtf?(
           {
-            email: 'yogi@trb.to',
-            password: '1234',
-            password_confirm: '1234'
+            email: 'drvu@gmail.com',
+            password: 'secure',
+            password_confirm: 'secure'
           }
         )
       end
@@ -23,7 +23,7 @@ class AuthOperationTest < Minitest::Spec
 
       user = result[:user]
       assert user.persisted?
-      assert_equal 'yogi@trb.to', user.email
+      assert_equal 'drvu@gmail.com', user.email
       assert_equal 60, user.password.size
       assert_equal 'created, please verify account', user.state
 
@@ -38,8 +38,8 @@ class AuthOperationTest < Minitest::Spec
     it 'fails on invalid input' do
       result = Auth::Operation::CreateAccount.wtf?(
         {
-          email: 'yogi@trb',
-          password_confirm: '1234'
+          email: 'drvu@gmail',
+          password_confirm: 'secure'
         }
       )
 
@@ -48,15 +48,15 @@ class AuthOperationTest < Minitest::Spec
 
     class NotRandom
       def self.urlsafe_base64(*)
-        'this is not random'
+       'this is not random'
       end
     end
 
     it 'fails when trying to insert the same {verify_account_token} twice' do
       options = {
-        email: 'fred@trb.to',
-        password: '1234',
-        password_confirm: '1234',
+        email: 'me@gmail.com',
+        password: 'secure',
+        password_confirm: 'secure',
         secure_random: NotRandom
       }
 
@@ -64,7 +64,7 @@ class AuthOperationTest < Minitest::Spec
       assert result.success?
       assert_equal 'this is not random', result[:verify_account_key]
 
-      result = Auth::Operation::CreateAccount.wtf?(options.merge(email: 'celso@trb.to'))
+      result = Auth::Operation::CreateAccount.wtf?(options.merge(email: 'me22@gmail.com'))
       assert result.failure?
       assert_equal 'Please try again.', result[:error]
     end

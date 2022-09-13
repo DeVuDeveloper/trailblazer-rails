@@ -1,6 +1,3 @@
 Rails.application.routes.draw do
-  # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
-
-  # Defines the root path route ("/")
-  # root "articles#index"
+  get "/auth/verify_account/:token" => "auth#verify_account", as: :verify_account
 end

@@ -58,7 +58,7 @@ module Auth::Operation
     end
 
     def send_verify_account_email(ctx, verify_account_key:, user:, **)
-      token = "#{user.id}_#{verify_account_key}" # stolen from Rodauth.
+      token = "#{user.id}_#{verify_account_key}"
 
       ctx[:verify_account_token] = token
 
