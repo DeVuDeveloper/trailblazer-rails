@@ -1,5 +1,5 @@
-require 'minitest/spec'
 require 'test_helper'
+require 'minitest/spec'
 
 class AuthOperationTest < Minitest::Spec
   include ActionMailer::TestHelper
@@ -12,8 +12,8 @@ class AuthOperationTest < Minitest::Spec
         result = Auth::Operation::CreateAccount.wtf?(
           {
             email: 'konj@gmail.com',
-            password: '12345',
-            password_confirm: '12345'
+            password: '1234',
+            password_confirm: '1234'
           }
         )
       end
@@ -39,8 +39,8 @@ class AuthOperationTest < Minitest::Spec
       result = Auth::Operation::CreateAccount.wtf?(
         {
           email: 'konj@gmail',
-          password: '12345',
-          password_confirm: '12345'
+          password: '1234',
+          password_confirm: '1234'
         }
       )
 
@@ -55,9 +55,9 @@ class AuthOperationTest < Minitest::Spec
 
     it 'fails when trying to insert the same {verify_account_token} twice' do
       options = {
-        email: 'konj@gmail.com',
-        password: '12345',
-        password_confirm: '12345',
+        email: 'runjo@gmail.com',
+        password: '1234',
+        password_confirm: '1234',
         secure_random: NotRandom
       }
 
@@ -65,21 +65,21 @@ class AuthOperationTest < Minitest::Spec
       assert result.success?
       assert_equal 'this is not random', result[:verify_account_key]
 
-      result = Auth::Operation::CreateAccount.wtf?(options.merge(email: 'magare@gmail.com'))
+      result = Auth::Operation::CreateAccount.wtf?(options.merge(email: 'rofo@gmail.com'))
       assert result.failure?
       assert_equal 'Please try again.', result[:error]
     end
   end
 
-  describe 'VerifyAccount' do
-    let(:valid_create_options) do
-      {
-        email: 'konj@gmail.com',
-        password: '12345',
-        password_confirm: '12345'
-      }
-    end
+  let(:valid_create_options) do
+    {
+      email: 'konj@gmail.com',
+      password: '12345',
+      password_confirm: '12345'
+    }
+  end
 
+  describe 'VerifyAccount' do
     it 'allows finding an account from {verify_account_token}' do
       result = Auth::Operation::CreateAccount.wtf?(valid_create_options)
       assert result.success?
@@ -121,11 +121,12 @@ class AuthOperationTest < Minitest::Spec
       assert result.failure?
     end
   end
+
   describe '#ResetPassword' do
     it 'fails with unknown email' do
       result = Auth::Operation::ResetPassword.wtf?(
         {
-          email: 'i_do_not_exist@gmail@com'
+          email: 'i_do_not_exist@gmail.com'
         }
       )
 
@@ -137,6 +138,7 @@ class AuthOperationTest < Minitest::Spec
       result = Auth::Operation::VerifyAccount.wtf?(verify_account_token: result[:verify_account_token])
 
       assert_emails 1 do
+        # the actual test.
         result = Auth::Operation::ResetPassword.wtf?(
           {
             email: 'konj@gmail.com'
@@ -154,10 +156,25 @@ class AuthOperationTest < Minitest::Spec
         assert_match(/#{user.id}_.+/, result[:reset_password_token])
 
         reset_password_key = ResetPasswordKey.where(user_id: user.id)[0]
+
         assert_equal 43, reset_password_key.key.size
 
         assert_match(%r{/auth/reset_password/#{user.id}_#{reset_password_key.key}}, result[:email].body.to_s)
       end
     end
-  end
+
+    it 'fails when trying to insert the same {reset_password_token} twice' do
+      result = Auth::Operation::CreateAccount.wtf?(valid_create_options)
+      result = Auth::Operation::VerifyAccount.wtf?(verify_account_token: result[:verify_account_token])
+      result = Auth::Operation::ResetPassword.wtf?(email: 'konj@gmail.com', secure_random: NotRandom)
+      assert_equal 'this is not random', result[:key]
+
+      result = Auth::Operation::CreateAccount.wtf?(valid_create_options.merge(email: 'sako@gmail.com'))
+      result = Auth::Operation::VerifyAccount.wtf?(verify_account_token: result[:verify_account_token])
+      result = Auth::Operation::ResetPassword.wtf?(email: 'sako@gmail.com', secure_random: NotRandom)
+      assert result.failure?
+      assert_equal 'Please try again.', result[:error]
+    end
+  end 
 end
+

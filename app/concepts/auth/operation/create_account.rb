@@ -7,8 +7,11 @@ module Auth::Operation
     step :password_hash
     step :state
     step :save_account
-    step :generate_verify_account_key
-    step :save_verify_account_key
+    step Subprocess(Auth::Activity::CreateKey),
+         input: lambda { |ctx, user:, **|
+                  { key_model_class: VerifyAccountKey, user: }.merge(ctx.to_h.slice(:secure_random))
+                },
+         output: ->(ctx, key:, **) { { verify_account_key: key, error: ctx[:error] } }
     step :send_verify_account_email
 
     def check_email(_ctx, email:, **)
@@ -44,17 +47,6 @@ module Auth::Operation
       end
 
       ctx[:user] = user
-    end
-
-    def generate_verify_account_key(ctx, secure_random: SecureRandom, **)
-      ctx[:verify_account_key] = secure_random.urlsafe_base64(32)
-    end
-
-    def save_verify_account_key(ctx, verify_account_key:, user:, **)
-      VerifyAccountKey.create(user_id: user.id, key: verify_account_key)
-    rescue ActiveRecord::RecordNotUnique
-      ctx[:error] = 'Please try again.'
-      false
     end
 
     def send_verify_account_email(ctx, verify_account_key:, user:, **)

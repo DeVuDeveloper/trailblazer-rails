@@ -1,42 +1,37 @@
 module Auth::Operation
-  class VerifyAccount < Trailblazer::Operation
-    step :extract_from_token
-    step :find_verify_account_token
+  class ResetPassword < Trailblazer::Operation
     step :find_user
-    step :compare_keys
+    pass :reset_password
     step :state
-    step :save
-    step :expire_verify_account_token
+    step :save_user
+    step Subprocess(Auth::Activity::CreateKey),
+         input: lambda { |ctx, user:, **|
+                  { key_model_class: ResetPasswordKey, user: }.merge(ctx.to_h.slice(:secure_random))
+                }
+    step :send_reset_password_email
 
-    def extract_from_token(ctx, verify_account_token:, **)
-      id, key = Auth::TokenUtils.split_token(verify_account_token)
-
-      ctx[:id] = id
-      ctx[:key] = key
+    def find_user(ctx, email:, **)
+      ctx[:user] = User.find_by(email:)
     end
 
-    def find_verify_account_token(ctx, id:, **)
-      ctx[:verify_account_key] = VerifyAccountKey.where(user_id: id)[0]
-    end
-
-    def find_user(ctx, id:, **)
-      ctx[:user] = User.find_by(id:)
-    end
-
-    def compare_keys(_ctx, verify_account_key:, key:, **)
-      Auth::TokenUtils.timing_safe_eql?(key, verify_account_key.key)
+    def reset_password(_ctx, user:, **)
+      user.password = nil
     end
 
     def state(_ctx, user:, **)
-      user.state = 'ready to login'
+      user.state = 'password reset, please change password'
     end
 
-    def save(_ctx, user:, **)
+    def save_user(_ctx, user:, **)
       user.save
     end
 
-    def expire_verify_account_token(_ctx, verify_account_key:, **)
-      verify_account_key.delete
+    def send_reset_password_email(ctx, key:, user:, **)
+      token = "#{user.id}_#{key}"
+
+      ctx[:reset_password_token] = token
+
+      ctx[:email] = AuthMailer.with(email: user.email, reset_password_token: token).reset_password_email.deliver_now
     end
   end
 end
