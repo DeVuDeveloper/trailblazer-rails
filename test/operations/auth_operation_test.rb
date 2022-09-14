@@ -138,7 +138,6 @@ class AuthOperationTest < Minitest::Spec
       result = Auth::Operation::VerifyAccount.wtf?(verify_account_token: result[:verify_account_token])
 
       assert_emails 1 do
-        # the actual test.
         result = Auth::Operation::ResetPassword.wtf?(
           {
             email: 'konj@gmail.com'
@@ -175,6 +174,75 @@ class AuthOperationTest < Minitest::Spec
       assert result.failure?
       assert_equal 'Please try again.', result[:error]
     end
-  end 
-end
+  end
+  describe 'UpdatePassword::CheckToken' do
+    it 'finds user by reset-password token and compares keys' do
+      
+      result = Auth::Operation::CreateAccount.call(valid_create_options)
+      result = Auth::Operation::VerifyAccount.call(verify_account_token: result[:verify_account_token])
+      result = Auth::Operation::ResetPassword.call(email: 'yogi@trb.to')
+      token = result[:reset_password_token]
 
+      result = Auth::Operation::UpdatePassword::CheckToken.wtf?(token:)
+      assert result.success?
+
+      original_key = result[:key]
+
+      user = result[:user]
+      assert user.persisted?
+      assert_equal 'yogi@trb.to', user.email
+      assert_nil user.password 
+      assert_equal 'password reset, please change password', user.state
+
+      reset_password_key = ResetPasswordKey.where(user_id: user.id)[0]
+
+      assert_equal original_key, reset_password_key
+    end
+
+    it 'fails with wrong token' do
+      result = Auth::Operation::CreateAccount.call(valid_create_options)
+      result = Auth::Operation::VerifyAccount.call(verify_account_token: result[:verify_account_token])
+      result = Auth::Operation::ResetPassword.call(email: 'yogi@trb.to')
+      token = result[:reset_password_token]
+
+      result = Auth::Operation::UpdatePassword::CheckToken.wtf?(token: token + 'rubbish')
+      assert result.failure?
+    end
+  end
+
+  describe 'UpdatePassword' do
+    it 'finds user by reset_password_token and updates password' do
+      result = Auth::Operation::CreateAccount.call(valid_create_options)
+      result = Auth::Operation::VerifyAccount.call(verify_account_token: result[:verify_account_token])
+      result = Auth::Operation::ResetPassword.call(email: 'konj@gmail.com')
+      token = result[:reset_password_token]
+
+      result = Auth::Operation::UpdatePassword.wtf?(token:, password: '12345678', password_confirm: '12345678')
+      assert result.success?
+
+      user = result[:user]
+      assert user.persisted?
+      assert_equal 'konj@gmail.com', user.email
+      assert_equal 60, user.password.size
+      assert_equal 'ready to login', user.state
+
+      assert_nil ResetPasswordKey.where(user_id: user.id)[0]
+    end
+
+    it 'fails with wrong password combo' do
+      result = Auth::Operation::CreateAccount.call(valid_create_options)
+      result = Auth::Operation::VerifyAccount.call(verify_account_token: result[:verify_account_token])
+      result = Auth::Operation::ResetPassword.call(email: 'konj@gmail.com')
+      token = result[:reset_password_token]
+
+      result = Auth::Operation::UpdatePassword.wtf?(
+        token:,
+        password: '12345678',
+        password_confirm: '123'
+      )
+      assert result.failure?
+      assert_equal 'Passwords do not match.', result[:error]
+      assert_nil result[:user].password
+    end
+  end
+end
