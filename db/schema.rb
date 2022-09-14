@@ -10,9 +10,17 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2022_09_13_135343) do
+ActiveRecord::Schema[7.0].define(version: 2022_09_14_085256) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
+
+  create_table "reset_password_keys", force: :cascade do |t|
+    t.integer "user_id"
+    t.text "key"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["key"], name: "index_reset_password_keys_on_key", unique: true
+  end
 
   create_table "users", force: :cascade do |t|
     t.text "email"
