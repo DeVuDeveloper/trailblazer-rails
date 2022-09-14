@@ -20,7 +20,7 @@ module Auth::Operation
     def update_user(_ctx, user:, password_hash:, state:, **)
       user.update_attributes(
         password: password_hash,
-        state: state
+        state:
       )
     end
 

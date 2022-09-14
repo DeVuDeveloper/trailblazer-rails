@@ -177,10 +177,9 @@ class AuthOperationTest < Minitest::Spec
   end
   describe 'UpdatePassword::CheckToken' do
     it 'finds user by reset-password token and compares keys' do
-      
       result = Auth::Operation::CreateAccount.call(valid_create_options)
       result = Auth::Operation::VerifyAccount.call(verify_account_token: result[:verify_account_token])
-      result = Auth::Operation::ResetPassword.call(email: 'yogi@trb.to')
+      result = Auth::Operation::ResetPassword.call(email: 'konj@gmail.com')
       token = result[:reset_password_token]
 
       result = Auth::Operation::UpdatePassword::CheckToken.wtf?(token:)
@@ -191,7 +190,7 @@ class AuthOperationTest < Minitest::Spec
       user = result[:user]
       assert user.persisted?
       assert_equal 'yogi@trb.to', user.email
-      assert_nil user.password 
+      assert_nil user.password
       assert_equal 'password reset, please change password', user.state
 
       reset_password_key = ResetPasswordKey.where(user_id: user.id)[0]
@@ -202,7 +201,7 @@ class AuthOperationTest < Minitest::Spec
     it 'fails with wrong token' do
       result = Auth::Operation::CreateAccount.call(valid_create_options)
       result = Auth::Operation::VerifyAccount.call(verify_account_token: result[:verify_account_token])
-      result = Auth::Operation::ResetPassword.call(email: 'yogi@trb.to')
+      result = Auth::Operation::ResetPassword.call(email: 'konj@gmail.com')
       token = result[:reset_password_token]
 
       result = Auth::Operation::UpdatePassword::CheckToken.wtf?(token: token + 'rubbish')
@@ -243,6 +242,23 @@ class AuthOperationTest < Minitest::Spec
       assert result.failure?
       assert_equal 'Passwords do not match.', result[:error]
       assert_nil result[:user].password
+    end
+  end
+  describe 'Login' do
+    it 'is successful with existing, active account' do
+      result = Auth::Operation::CreateAccount.call(valid_create_options)
+      result = Auth::Operation::VerifyAccount.call(verify_account_token: result[:verify_account_token])
+
+      result = Auth::Operation::Login.wtf?(email: 'konj@gmail.com', password: '1234')
+      assert result.success?
+
+      result = Auth::Operation::Login.wtf?(email: 'konj@gmail.com', password: 'abcd')
+      assert result.failure?
+    end
+
+    it 'fails with unknown email' do
+      result = Auth::Operation::Login.wtf?(email: 'konj@gmail.com', password: 'abcd')
+      assert result.failure?
     end
   end
 end
